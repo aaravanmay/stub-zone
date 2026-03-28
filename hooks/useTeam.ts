@@ -22,20 +22,28 @@ function createDefaultTeam(): TeamState {
 }
 
 export function useTeam() {
-  const [team, setTeam] = useState<TeamState>(() => {
-    if (typeof window === 'undefined') return createDefaultTeam();
+  const [team, setTeam] = useState<TeamState>(createDefaultTeam);
+  const [hydrated, setHydrated] = useState(false);
+
+  // Load from localStorage after hydration to avoid SSR/client mismatch
+  useEffect(() => {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) return JSON.parse(stored) as TeamState;
+      if (stored) {
+        const parsed = JSON.parse(stored) as TeamState;
+        setTeam(parsed);
+      }
     } catch {}
-    return createDefaultTeam();
-  });
+    setHydrated(true);
+  }, []);
 
+  // Only persist to localStorage after initial load is complete
   useEffect(() => {
+    if (!hydrated) return;
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(team));
     } catch {}
-  }, [team]);
+  }, [team, hydrated]);
 
   const setPlayer = useCallback((position: string, item: Item) => {
     setTeam((prev) => ({ ...prev, [position]: item }));
