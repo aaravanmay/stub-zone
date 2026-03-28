@@ -9,8 +9,10 @@ export async function GET(request: NextRequest) {
     if (name) {
       params.set('name', name);
     }
+    // Use mlb_card type to only return player cards (not equipment, stadiums, etc.)
+    params.set('type', 'mlb_card');
 
-    const url = `https://mlb26.theshow.com/apis/player_search.json?${params.toString()}`;
+    const url = `https://mlb26.theshow.com/apis/items.json?${params.toString()}`;
     const res = await fetch(url, { next: { revalidate: 30 } });
     const data = await res.json();
 
