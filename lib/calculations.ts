@@ -52,7 +52,8 @@ export function calculateMetaScore(item: Item, position: string): number {
   }
 
   // Bonus for elite quirks
-  const eliteQuirkCount = item.quirks.filter((q) =>
+  const quirks = item.quirks || [];
+  const eliteQuirkCount = quirks.filter((q) =>
     ELITE_QUIRKS.includes(q)
   ).length;
   score += eliteQuirkCount * 5;
