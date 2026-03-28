@@ -9,14 +9,18 @@ export async function GET(request: NextRequest) {
     if (name) {
       params.set('name', name);
     }
-    // Use mlb_card type to only return player cards (not equipment, stadiums, etc.)
     params.set('type', 'mlb_card');
 
-    const url = `https://mlb26.theshow.com/apis/items.json?${params.toString()}`;
+    // The items.json endpoint ignores the name filter, but listings.json supports it.
+    // Each listing contains an "item" sub-object with player card data.
+    const url = `https://mlb26.theshow.com/apis/listings.json?${params.toString()}`;
     const res = await fetch(url, { next: { revalidate: 30 } });
     const data = await res.json();
 
-    return NextResponse.json(data);
+    // Extract the item (player card) from each listing
+    const items = (data.listings ?? []).map((listing: any) => listing.item).filter(Boolean);
+
+    return NextResponse.json({ results: items });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to search players';
     return NextResponse.json({ error: message }, { status: 500 });
