@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Item, Listing } from '@/lib/types';
 import RarityBadge from './RarityBadge';
 
@@ -20,40 +20,47 @@ export default function UpgradeAdvisor({ team }: Props) {
   const [upgrades, setUpgrades] = useState<Record<string, Listing[]>>({});
   const [loading, setLoading] = useState(false);
 
-  const filledPositions = Object.entries(team).filter(([, p]) => p !== null) as [string, Item][];
-  if (filledPositions.length < 3) {
-    return (
-      <div className="bg-bg-secondary border border-border-subtle rounded-xl p-8 text-center text-text-secondary">
-        Fill at least 3 positions to get upgrade suggestions.
-      </div>
-    );
-  }
+  const filledPositions = useMemo(
+    () => Object.entries(team).filter(([, p]) => p !== null) as [string, Item][],
+    [team]
+  );
 
-  const avgOVR = Math.round(filledPositions.reduce((s, [, p]) => s + p.ovr, 0) / filledPositions.length);
-  const weakest = filledPositions.reduce((min, cur) => cur[1].ovr < min[1].ovr ? cur : min);
+  const hasEnough = filledPositions.length >= 3;
 
-  const avgStats = {
-    Contact: Math.round(filledPositions.reduce((s, [, p]) => s + ((p.contact_right || 0) + (p.contact_left || 0)) / 2, 0) / filledPositions.length),
-    Power: Math.round(filledPositions.reduce((s, [, p]) => s + ((p.power_right || 0) + (p.power_left || 0)) / 2, 0) / filledPositions.length),
-    Speed: Math.round(filledPositions.reduce((s, [, p]) => s + (p.speed || 0), 0) / filledPositions.length),
-    Fielding: Math.round(filledPositions.reduce((s, [, p]) => s + (p.fielding || 0), 0) / filledPositions.length),
-  };
+  const avgOVR = hasEnough
+    ? Math.round(filledPositions.reduce((s, [, p]) => s + p.ovr, 0) / filledPositions.length)
+    : 0;
+
+  const weakest = hasEnough
+    ? filledPositions.reduce((min, cur) => cur[1].ovr < min[1].ovr ? cur : min)
+    : null;
+
+  const avgStats = hasEnough
+    ? {
+        Contact: Math.round(filledPositions.reduce((s, [, p]) => s + ((p.contact_right || 0) + (p.contact_left || 0)) / 2, 0) / filledPositions.length),
+        Power: Math.round(filledPositions.reduce((s, [, p]) => s + ((p.power_right || 0) + (p.power_left || 0)) / 2, 0) / filledPositions.length),
+        Speed: Math.round(filledPositions.reduce((s, [, p]) => s + (p.speed || 0), 0) / filledPositions.length),
+        Fielding: Math.round(filledPositions.reduce((s, [, p]) => s + (p.fielding || 0), 0) / filledPositions.length),
+      }
+    : { Contact: 0, Power: 0, Speed: 0, Fielding: 0 };
 
   const lowestStat = Object.entries(avgStats).reduce((min, cur) => cur[1] < min[1] ? cur : min);
 
   useEffect(() => {
+    if (!hasEnough) return;
     const fetchUpgrades = async () => {
       setLoading(true);
       const results: Record<string, Listing[]> = {};
       const positions = filledPositions.slice(0, 8);
       await Promise.all(positions.map(async ([slot, player]) => {
         const pos = slot.replace(/\d+$/, '');
-        const displayPos = ['SP', 'RP', 'CP'].includes(pos) ? pos : pos;
         try {
           const params = new URLSearchParams({
-            type: 'mlb_card', display_position: displayPos, sort: 'rank', order: 'desc',
-            max_best_buy_price: String(BUDGET_TIERS[budgetTier].max),
+            type: 'mlb_card', display_position: pos, sort: 'rank', order: 'desc',
           });
+          if (BUDGET_TIERS[budgetTier].max < Infinity) {
+            params.set('max_best_buy_price', String(BUDGET_TIERS[budgetTier].max));
+          }
           const res = await fetch(`/api/listings?${params}`);
           const data = await res.json();
           results[slot] = (data.listings || []).filter((l: Listing) => l.item.ovr > player.ovr).slice(0, 3);
@@ -63,7 +70,15 @@ export default function UpgradeAdvisor({ team }: Props) {
       setLoading(false);
     };
     fetchUpgrades();
-  }, [budgetTier, filledPositions.length]);
+  }, [budgetTier, hasEnough, filledPositions]);
+
+  if (!hasEnough) {
+    return (
+      <div className="bg-bg-secondary border border-border-subtle rounded-xl p-8 text-center text-text-secondary">
+        Fill at least 3 positions to get upgrade suggestions.
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -81,11 +96,13 @@ export default function UpgradeAdvisor({ team }: Props) {
             <div className={`font-mono font-bold text-xl ${k === lowestStat[0] ? 'text-loss' : 'text-text-primary'}`}>{v}</div>
           </div>
         ))}
-        <div className="bg-bg-secondary border border-loss/40 rounded-xl p-3 text-center">
-          <div className="text-text-tertiary text-xs">Weakest</div>
-          <div className="text-loss font-semibold text-sm">{weakest[0]}</div>
-          <div className="font-mono text-loss text-xs">{weakest[1].ovr} OVR</div>
-        </div>
+        {weakest && (
+          <div className="bg-bg-secondary border border-loss/40 rounded-xl p-3 text-center">
+            <div className="text-text-tertiary text-xs">Weakest</div>
+            <div className="text-loss font-semibold text-sm">{weakest[0]}</div>
+            <div className="font-mono text-loss text-xs">{weakest[1].ovr} OVR</div>
+          </div>
+        )}
       </div>
 
       {/* Budget Filter */}

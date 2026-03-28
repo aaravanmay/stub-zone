@@ -1,23 +1,22 @@
 'use client';
 
 import Link from 'next/link';
-import { TrendingUp, Users, Wrench, FolderCheck, ArrowLeftRight, BarChart3, Target, Star, Package, Trophy, Map, Wallet, RefreshCw, GitBranch, Calculator } from 'lucide-react';
+import { TrendingUp, Users, Wrench, FolderCheck, ArrowLeftRight, BarChart3, Target, Star, Package, Trophy, Map, Wallet, RefreshCw } from 'lucide-react';
 
 const features = [
   { href: '/flipping', icon: TrendingUp, title: 'Market Flipping', desc: 'Find the best flips with live buy/sell data', color: 'text-profit' },
-  { href: '/players', icon: Users, title: 'Player Database', desc: 'Browse all cards with full attributes and stats', color: 'text-info' },
-  { href: '/my-team', icon: Wrench, title: 'My Team Builder', desc: 'Build your squad with smart autocomplete search', color: 'text-accent-primary' },
-  { href: '/collections', icon: FolderCheck, title: 'Collections', desc: 'Track owned cards and optimize completion path', color: 'text-warning' },
+  { href: '/players', icon: Users, title: 'Player Database', desc: 'Browse all cards with meta overall and stats', color: 'text-info' },
+  { href: '/my-team', icon: Wrench, title: 'My Team Builder', desc: 'Build your squad for personalized recommendations', color: 'text-accent-primary' },
+  { href: '/collections', icon: FolderCheck, title: 'Collections', desc: 'Live Series & Program collections with rewards', color: 'text-warning' },
   { href: '/exchanges', icon: ArrowLeftRight, title: 'Exchange Calculator', desc: 'Find cheapest cards per exchange point', color: 'text-rarity-bronze' },
   { href: '/movers', icon: BarChart3, title: 'Market Movers', desc: 'Top gainers, losers, and market indices', color: 'text-rarity-diamond' },
-  { href: '/programs', icon: Target, title: 'Program Advisor', desc: 'Best modes ranked by stubs/hr and XP/hr', color: 'text-loss' },
-  { href: '/watchlist', icon: Star, title: 'Flip Watchlist', desc: 'Track cards and log your flip profits', color: 'text-warning' },
-  { href: '/packs', icon: Package, title: 'Pack Simulator', desc: 'Expected value calculator and pack opener', color: 'text-rarity-gold' },
+  { href: '/programs', icon: Target, title: 'Program Advisor', desc: 'Programs & modes ranked with card rewards', color: 'text-loss' },
+  { href: '/watchlist', icon: Star, title: 'Flip Watchlist', desc: 'Track cards you want to flip', color: 'text-warning' },
+  { href: '/packs', icon: Package, title: 'Pack Value', desc: 'EV calculator for all shop packs', color: 'text-rarity-gold' },
   { href: '/tier-list', icon: Trophy, title: 'Meta Tier List', desc: 'Position-weighted rankings with quirk bonuses', color: 'text-accent-primary' },
   { href: '/conquest', icon: Map, title: 'Conquest Tracker', desc: 'Checklist for every hidden reward', color: 'text-profit' },
   { href: '/budget', icon: Wallet, title: 'Budget Planner', desc: 'Smart spend plan for your stub count', color: 'text-rarity-gold' },
   { href: '/roster-updates', icon: RefreshCw, title: 'Roster Predictor', desc: 'Investment opportunities from upgrade patterns', color: 'text-info' },
-  { href: '/collections?tab=optimizer', icon: GitBranch, title: 'Path Optimizer', desc: 'Optimal collection completion order', color: 'text-accent-secondary' },
 ];
 
 export default function HomePage() {

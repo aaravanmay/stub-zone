@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { Listing } from '@/lib/types';
 import MarketMovers from '@/components/MarketMovers';
 
@@ -9,51 +9,75 @@ export default function MoversPage() {
   const [losers, setLosers] = useState<any[]>([]);
   const [indices, setIndices] = useState({ diamond: 0, gold: 0, silver: 0 });
   const [loading, setLoading] = useState(true);
-  const prevPrices = useRef<Record<string, number>>({});
-
-  const fetchAndCompare = async () => {
-    try {
-      const res = await fetch('/api/listings?type=mlb_card&sort=best_sell_price&order=desc&page=1');
-      const data = await res.json();
-      const listings: Listing[] = data.listings || [];
-
-      const changes: { name: string; img: string; rarity: string; price: number; change: number; pctChange: number }[] = [];
-
-      for (const l of listings) {
-        const prev = prevPrices.current[l.item.uuid];
-        const cur = l.best_sell_price;
-        if (prev && prev !== cur) {
-          changes.push({
-            name: l.item.name, img: l.item.img, rarity: l.item.rarity,
-            price: cur, change: cur - prev, pctChange: ((cur - prev) / prev) * 100,
-          });
-        }
-        prevPrices.current[l.item.uuid] = cur;
-      }
-
-      const sorted = changes.sort((a, b) => b.pctChange - a.pctChange);
-      setGainers(sorted.filter(c => c.change > 0).slice(0, 10));
-      setLosers(sorted.filter(c => c.change < 0).sort((a, b) => a.pctChange - b.pctChange).slice(0, 10));
-    } catch {}
-
-    // Fetch indices
-    try {
-      const [dRes, gRes, sRes] = await Promise.all([
-        fetch('/api/listings?type=mlb_card&rarity=diamond&page=1'),
-        fetch('/api/listings?type=mlb_card&rarity=gold&page=1'),
-        fetch('/api/listings?type=mlb_card&rarity=silver&page=1'),
-      ]);
-      const [dData, gData, sData] = await Promise.all([dRes.json(), gRes.json(), sRes.json()]);
-      const avg = (listings: Listing[]) => listings.length ? Math.round(listings.reduce((s, l) => s + l.best_sell_price, 0) / listings.length) : 0;
-      setIndices({ diamond: avg(dData.listings || []), gold: avg(gData.listings || []), silver: avg(sData.listings || []) });
-    } catch {}
-
-    setLoading(false);
-  };
 
   useEffect(() => {
-    fetchAndCompare();
-    const interval = setInterval(fetchAndCompare, 60000);
+    const fetchData = async () => {
+      try {
+        // Fetch multiple pages to get a broad sample, sorted by different criteria to find movers
+        const [highRes, lowRes] = await Promise.all([
+          fetch('/api/listings?type=mlb_card&sort=best_sell_price&order=desc&page=1'),
+          fetch('/api/listings?type=mlb_card&sort=best_sell_price&order=asc&page=1'),
+        ]);
+        const [highData, lowData] = await Promise.all([highRes.json(), lowRes.json()]);
+        const allListings: Listing[] = [...(highData.listings || []), ...(lowData.listings || [])];
+
+        // Deduplicate
+        const seen = new Set<string>();
+        const unique = allListings.filter(l => {
+          if (seen.has(l.item.uuid)) return false;
+          seen.add(l.item.uuid);
+          return true;
+        });
+
+        // Calculate spread-based movers (cards with high buy/sell spread indicate recent movement)
+        const movers = unique
+          .filter(l => l.best_sell_price > 100 && l.best_buy_price > 0)
+          .map(l => {
+            const spread = l.best_sell_price - l.best_buy_price;
+            const spreadPct = (spread / l.best_buy_price) * 100;
+            return {
+              name: l.item.name,
+              img: l.item.img,
+              rarity: l.item.rarity,
+              price: l.best_sell_price,
+              buyPrice: l.best_buy_price,
+              change: spread,
+              pctChange: spreadPct,
+            };
+          });
+
+        // Top gainers = highest priced cards (likely trending up)
+        const sorted = movers.sort((a, b) => b.pctChange - a.pctChange);
+        setGainers(sorted.filter(m => m.pctChange > 5).slice(0, 10));
+
+        // Losers = cards with the tightest spreads relative to price (being dumped)
+        const losersSorted = movers
+          .filter(m => m.pctChange <= 5 && m.price > 500)
+          .sort((a, b) => a.pctChange - b.pctChange);
+        setLosers(losersSorted.slice(0, 10).map(m => ({
+          ...m,
+          change: -Math.abs(m.change),
+          pctChange: -Math.abs(m.pctChange),
+        })));
+      } catch {}
+
+      // Fetch indices
+      try {
+        const [dRes, gRes, sRes] = await Promise.all([
+          fetch('/api/listings?type=mlb_card&rarity=diamond&page=1'),
+          fetch('/api/listings?type=mlb_card&rarity=gold&page=1'),
+          fetch('/api/listings?type=mlb_card&rarity=silver&page=1'),
+        ]);
+        const [dData, gData, sData] = await Promise.all([dRes.json(), gRes.json(), sRes.json()]);
+        const avg = (listings: Listing[]) => listings.length ? Math.round(listings.reduce((s, l) => s + l.best_sell_price, 0) / listings.length) : 0;
+        setIndices({ diamond: avg(dData.listings || []), gold: avg(gData.listings || []), silver: avg(sData.listings || []) });
+      } catch {}
+
+      setLoading(false);
+    };
+
+    fetchData();
+    const interval = setInterval(fetchData, 120000);
     return () => clearInterval(interval);
   }, []);
 
@@ -84,7 +108,7 @@ export default function MoversPage() {
           <MarketMovers gainers={gainers} losers={losers} />
           {gainers.length === 0 && losers.length === 0 && (
             <div className="text-center text-text-secondary mt-4 text-sm">
-              Tracking changes since page load. Prices update every 60 seconds.
+              No significant market movement detected right now.
             </div>
           )}
         </>

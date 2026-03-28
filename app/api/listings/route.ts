@@ -9,6 +9,8 @@ export async function GET(request: NextRequest) {
       'type', 'page', 'sort_by', 'rarity', 'order',
       'name', 'min_buy_price', 'max_buy_price',
       'min_sell_price', 'max_sell_price',
+      'min_best_buy_price', 'max_best_buy_price',
+      'min_best_sell_price', 'max_best_sell_price',
       'display_position', 'team', 'series_id',
       'min_rank', 'max_rank',
     ];
@@ -18,6 +20,12 @@ export async function GET(request: NextRequest) {
       if (value !== null) {
         params.set(key, value);
       }
+    }
+
+    // Map frontend "sort" to API "sort_by"
+    const sort = searchParams.get('sort');
+    if (sort && !params.has('sort_by')) {
+      params.set('sort_by', sort);
     }
 
     const url = `https://mlb26.theshow.com/apis/listings.json?${params.toString()}`;

@@ -76,7 +76,7 @@ export const TEAMS: { abbr: string; name: string }[] = [
   { abbr: 'TB', name: 'Tampa Bay Rays' },
   { abbr: 'TEX', name: 'Texas Rangers' },
   { abbr: 'TOR', name: 'Toronto Blue Jays' },
-  { abbr: 'WSH', name: 'Washington Nationals' },
+  { abbr: 'WAS', name: 'Washington Nationals' },
 ];
 
 export const SERIES_MAP: Record<number, string> = {

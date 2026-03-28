@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Listing } from '@/lib/types';
 import { RARITY_ORDER, POSITIONS, TEAMS } from '@/lib/constants';
+import { calculateMetaScore } from '@/lib/calculations';
 import PlayerCard from '@/components/PlayerCard';
 import RarityBadge from '@/components/RarityBadge';
 import { Search } from 'lucide-react';
@@ -27,7 +28,9 @@ export default function PlayersPage() {
     if (position) params.set('display_position', position);
     if (team) params.set('team', team);
     if (rarity) params.set('rarity', rarity.toLowerCase());
-    if (sortCol !== 'rank') { params.set('sort', sortCol === 'best_sell_price' ? 'best_sell_price' : 'rank'); }
+    if (sortCol !== 'rank' && sortCol !== 'meta') {
+      params.set('sort', sortCol === 'best_sell_price' ? 'best_sell_price' : 'rank');
+    }
     params.set('order', sortDir);
 
     try {
@@ -40,6 +43,17 @@ export default function PlayersPage() {
   }, [page, search, position, team, rarity, sortCol, sortDir]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  // Sort by meta if selected (client-side)
+  const displayListings = sortCol === 'meta'
+    ? [...listings].sort((a, b) => {
+        const posA = a.item.display_position || 'C';
+        const posB = b.item.display_position || 'C';
+        const metaA = calculateMetaScore(a.item, posA);
+        const metaB = calculateMetaScore(b.item, posB);
+        return sortDir === 'desc' ? metaB - metaA : metaA - metaB;
+      })
+    : listings;
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-6">
@@ -74,6 +88,20 @@ export default function PlayersPage() {
             </button>
           ))}
         </div>
+        {/* Sort by Meta */}
+        <button
+          onClick={() => {
+            if (sortCol === 'meta') {
+              setSortDir(d => d === 'desc' ? 'asc' : 'desc');
+            } else {
+              setSortCol('meta');
+              setSortDir('desc');
+            }
+          }}
+          className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${sortCol === 'meta' ? 'bg-[rgba(6,214,160,0.12)] border-accent-primary text-accent-primary' : 'border-border-default text-text-secondary hover:border-border-hover'}`}
+        >
+          Sort by Meta {sortCol === 'meta' ? (sortDir === 'desc' ? '↓' : '↑') : ''}
+        </button>
       </div>
 
       {/* Content */}
@@ -91,48 +119,52 @@ export default function PlayersPage() {
         </div>
       ) : viewMode === 'grid' ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-          {listings.map(l => (
+          {displayListings.map(l => (
             <PlayerCard key={l.item.uuid} item={l.item} showPrice buyPrice={l.best_buy_price} sellPrice={l.best_sell_price} />
           ))}
         </div>
       ) : (
         <div className="bg-bg-secondary border border-border-subtle rounded-xl overflow-hidden overflow-x-auto">
-          <table className="w-full min-w-[800px]">
+          <table className="w-full min-w-[900px]">
             <thead>
               <tr className="border-b border-border-subtle">
-                {['Card', 'OVR', 'Pos', 'Team', 'Series', 'Rarity', 'Con R', 'Pow R', 'Speed', 'Field', 'Buy', 'Sell'].map(h => (
+                {['Card', 'OVR', 'Meta', 'Pos', 'Team', 'Series', 'Rarity', 'Con R', 'Pow R', 'Speed', 'Field', 'Buy', 'Sell'].map(h => (
                   <th key={h} className="p-3 text-xs font-medium text-text-secondary uppercase tracking-wider text-left">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {listings.map(l => (
-                <tr key={l.item.uuid} className="border-b border-border-subtle/50 odd:bg-white/[0.02] hover:bg-[rgba(6,214,160,0.06)] transition-colors">
-                  <td className="p-3">
-                    <a href={`/players/${l.item.uuid}`} className="flex items-center gap-2 hover:text-accent-primary transition-colors">
-                      <img src={l.item.img} alt="" className="w-8 h-8 rounded object-cover bg-bg-tertiary" loading="lazy" />
-                      <span className="text-sm text-text-primary">{l.item.name}</span>
-                    </a>
-                  </td>
-                  <td className="p-3 font-mono font-bold text-sm">{l.item.ovr}</td>
-                  <td className="p-3 text-sm text-text-secondary">{l.item.display_position}</td>
-                  <td className="p-3 text-sm text-text-secondary">{l.item.team}</td>
-                  <td className="p-3 text-sm text-text-secondary">{l.item.series}</td>
-                  <td className="p-3"><RarityBadge rarity={l.item.rarity} /></td>
-                  <td className="p-3 font-mono text-sm">{l.item.contact_right}</td>
-                  <td className="p-3 font-mono text-sm">{l.item.power_right}</td>
-                  <td className="p-3 font-mono text-sm">{l.item.speed}</td>
-                  <td className="p-3 font-mono text-sm">{l.item.fielding}</td>
-                  <td className="p-3 font-mono text-sm text-right">{l.best_buy_price.toLocaleString()}</td>
-                  <td className="p-3 font-mono text-sm text-right">{l.best_sell_price.toLocaleString()}</td>
-                </tr>
-              ))}
+              {displayListings.map(l => {
+                const meta = calculateMetaScore(l.item, l.item.display_position || 'C');
+                return (
+                  <tr key={l.item.uuid} className="border-b border-border-subtle/50 odd:bg-white/[0.02] hover:bg-[rgba(6,214,160,0.06)] transition-colors">
+                    <td className="p-3">
+                      <a href={`/players/${l.item.uuid}`} className="flex items-center gap-2 hover:text-accent-primary transition-colors">
+                        <img src={l.item.img} alt="" className="w-8 h-8 rounded object-cover bg-bg-tertiary" loading="lazy" />
+                        <span className="text-sm text-text-primary">{l.item.name}</span>
+                      </a>
+                    </td>
+                    <td className="p-3 font-mono font-bold text-sm">{l.item.ovr}</td>
+                    <td className="p-3 font-mono font-bold text-sm text-accent-primary">{meta.toFixed(0)}</td>
+                    <td className="p-3 text-sm text-text-secondary">{l.item.display_position}</td>
+                    <td className="p-3 text-sm text-text-secondary">{l.item.team}</td>
+                    <td className="p-3 text-sm text-text-secondary">{l.item.series}</td>
+                    <td className="p-3"><RarityBadge rarity={l.item.rarity} /></td>
+                    <td className="p-3 font-mono text-sm">{l.item.contact_right}</td>
+                    <td className="p-3 font-mono text-sm">{l.item.power_right}</td>
+                    <td className="p-3 font-mono text-sm">{l.item.speed}</td>
+                    <td className="p-3 font-mono text-sm">{l.item.fielding}</td>
+                    <td className="p-3 font-mono text-sm text-right">{l.best_buy_price.toLocaleString()}</td>
+                    <td className="p-3 font-mono text-sm text-right">{l.best_sell_price.toLocaleString()}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
       )}
 
-      {listings.length === 0 && !loading && (
+      {displayListings.length === 0 && !loading && (
         <div className="text-center py-16 text-text-secondary">No players found matching your filters.</div>
       )}
 

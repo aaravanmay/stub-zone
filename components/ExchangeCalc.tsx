@@ -14,7 +14,10 @@ function getExchangePoints(ovr: number, rarity: string): number {
 }
 
 export default function ExchangeCalc({ cards, targetPoints, tierName }: Props) {
-  const withPoints = cards.map(l => {
+  // Filter out cards with no buy price
+  const validCards = cards.filter(l => l.best_buy_price > 0);
+
+  const withPoints = validCards.map(l => {
     const points = getExchangePoints(l.item.ovr, l.item.rarity);
     const costPerPoint = l.best_buy_price / Math.max(points, 1);
     return { ...l, points, costPerPoint };
@@ -23,13 +26,11 @@ export default function ExchangeCalc({ cards, targetPoints, tierName }: Props) {
   let remaining = targetPoints;
   let totalCost = 0;
   let totalCards = 0;
-  const recommended: typeof withPoints = [];
 
   for (const card of withPoints) {
     if (remaining <= 0) break;
     const needed = Math.ceil(remaining / card.points);
     const use = Math.min(needed, 20);
-    recommended.push(card);
     remaining -= card.points * use;
     totalCost += card.best_buy_price * use;
     totalCards += use;
@@ -39,38 +40,50 @@ export default function ExchangeCalc({ cards, targetPoints, tierName }: Props) {
     <div>
       <div className="bg-bg-secondary border border-accent-primary/20 rounded-xl p-4 mb-4">
         <div className="flex items-center justify-between">
-          <span className="text-text-primary font-heading font-semibold">{tierName} Exchange</span>
+          <div>
+            <span className="text-text-primary font-heading font-semibold">{tierName} Exchange</span>
+            <div className="text-text-tertiary text-xs mt-1">Target: {targetPoints.toLocaleString()} exchange points</div>
+          </div>
           <div className="text-right">
-            <div className="font-mono font-bold text-accent-primary text-lg">{totalCost.toLocaleString()} stubs</div>
+            <div className="font-mono font-bold text-accent-primary text-lg">
+              {totalCost > 0 ? `${totalCost.toLocaleString()} stubs` : 'Loading prices...'}
+            </div>
             <div className="text-text-tertiary text-xs">{totalCards} cards needed</div>
           </div>
         </div>
       </div>
-      <div className="overflow-x-auto">
-        <table className="w-full">
-          <thead>
-            <tr className="border-b border-border-subtle">
-              {['Card', 'OVR', 'Buy Price', 'Points', 'Cost/Point'].map(h => (
-                <th key={h} className="p-2 text-xs text-text-secondary uppercase text-left">{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {withPoints.slice(0, 20).map(c => (
-              <tr key={c.item.uuid} className="border-b border-border-subtle/50 odd:bg-white/[0.02]">
-                <td className="p-2 flex items-center gap-2">
-                  <img src={c.item.img} alt="" className="w-8 h-8 rounded object-cover bg-bg-tertiary" loading="lazy" />
-                  <span className="text-text-primary text-sm">{c.item.name}</span>
-                </td>
-                <td className="p-2 font-mono text-sm">{c.item.ovr}</td>
-                <td className="p-2 font-mono text-sm">{c.best_buy_price.toLocaleString()}</td>
-                <td className="p-2 font-mono text-sm">{c.points}</td>
-                <td className="p-2 font-mono text-sm text-accent-primary">{c.costPerPoint.toFixed(1)}</td>
+
+      {withPoints.length === 0 ? (
+        <div className="text-center text-text-secondary py-8">
+          Loading card prices... Make sure there are cards available for this exchange tier.
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-border-subtle">
+                {['Card', 'OVR', 'Buy Price', 'Points', 'Cost/Point'].map(h => (
+                  <th key={h} className="p-2 text-xs text-text-secondary uppercase text-left">{h}</th>
+                ))}
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {withPoints.slice(0, 20).map(c => (
+                <tr key={c.item.uuid} className="border-b border-border-subtle/50 odd:bg-white/[0.02]">
+                  <td className="p-2 flex items-center gap-2">
+                    <img src={c.item.img} alt="" className="w-8 h-8 rounded object-cover bg-bg-tertiary" loading="lazy" />
+                    <span className="text-text-primary text-sm">{c.item.name}</span>
+                  </td>
+                  <td className="p-2 font-mono text-sm">{c.item.ovr}</td>
+                  <td className="p-2 font-mono text-sm">{c.best_buy_price.toLocaleString()}</td>
+                  <td className="p-2 font-mono text-sm">{c.points}</td>
+                  <td className="p-2 font-mono text-sm text-accent-primary">{c.costPerPoint.toFixed(1)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }

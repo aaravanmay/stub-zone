@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { SingleListing } from '@/lib/types';
-import { calculateFlip } from '@/lib/calculations';
+import { calculateFlip, calculateMetaScore } from '@/lib/calculations';
 import RarityBadge from '@/components/RarityBadge';
 import PriceHistoryChart from '@/components/PriceHistoryChart';
 import { ArrowLeft } from 'lucide-react';
@@ -34,9 +34,20 @@ export default function CardDetailPage() {
     if (!uuid) return;
     setLoading(true);
     fetch(`/api/listing/${uuid}`)
-      .then(r => r.json())
-      .then(data => setListing(data))
-      .catch(() => {})
+      .then(r => {
+        if (!r.ok) throw new Error('Failed to fetch');
+        return r.json();
+      })
+      .then(data => {
+        if (data && data.item) {
+          setListing(data);
+        } else if (data && data.listing_name) {
+          setListing(data);
+        } else {
+          setListing(null);
+        }
+      })
+      .catch(() => { setListing(null); })
       .finally(() => setLoading(false));
   }, [uuid]);
 
@@ -52,12 +63,13 @@ export default function CardDetailPage() {
     );
   }
 
-  if (!listing) {
+  if (!listing || !listing.item) {
     return <div className="max-w-5xl mx-auto px-4 py-16 text-center text-text-secondary">Card not found.</div>;
   }
 
   const item = listing.item;
-  const { profit, margin, tax } = calculateFlip(listing.best_buy_price, listing.best_sell_price);
+  const { profit, margin } = calculateFlip(listing.best_buy_price, listing.best_sell_price);
+  const metaScore = calculateMetaScore(item, item.display_position);
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-6">
@@ -81,7 +93,23 @@ export default function CardDetailPage() {
                 <span className="text-text-tertiary text-sm">{item.series}</span>
               </div>
             </div>
-            <div className="ml-auto font-mono text-4xl font-bold text-text-primary">{item.ovr}</div>
+            <div className="ml-auto text-right">
+              <div className="font-mono text-4xl font-bold text-text-primary">{item.ovr}</div>
+              <div className="text-text-tertiary text-xs">OVR</div>
+            </div>
+          </div>
+
+          {/* Meta Overall */}
+          <div className="bg-gradient-to-r from-accent-primary/10 to-transparent border border-accent-primary/20 rounded-xl p-4 mb-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-text-secondary text-xs uppercase tracking-wider">Meta Overall</div>
+                <div className="font-mono font-bold text-3xl text-accent-primary">{metaScore.toFixed(0)}</div>
+              </div>
+              <div className="text-text-tertiary text-xs text-right max-w-48">
+                Weighted score based on position-specific attribute importance and elite quirks
+              </div>
+            </div>
           </div>
 
           {/* Market */}
@@ -102,11 +130,11 @@ export default function CardDetailPage() {
           </div>
 
           {/* Quirks */}
-          {item.quirks?.length > 0 && (
+          {item.quirks && item.quirks.length > 0 && (
             <div className="mb-4">
               <h3 className="text-text-secondary text-xs uppercase tracking-wider mb-2">Quirks</h3>
               <div className="flex flex-wrap gap-1.5">
-                {item.quirks.map(q => (
+                {item.quirks.map((q: string) => (
                   <span key={q} className="px-2 py-0.5 bg-bg-tertiary border border-border-subtle rounded-full text-xs text-text-secondary">{q}</span>
                 ))}
               </div>
@@ -128,7 +156,7 @@ export default function CardDetailPage() {
           </div>
         </div>
         <div className="bg-bg-secondary border border-border-subtle rounded-xl p-5">
-          <h3 className="font-heading font-semibold text-text-primary mb-4">Fielding & Other</h3>
+          <h3 className="font-heading font-semibold text-text-primary mb-4">Fielding & Pitching</h3>
           <div className="space-y-2.5">
             <StatBar label="Fielding" value={item.fielding} />
             <StatBar label="Arm Str" value={item.arm_strength} />
@@ -143,13 +171,15 @@ export default function CardDetailPage() {
       </div>
 
       {/* Price History */}
-      <div className="bg-bg-secondary border border-border-subtle rounded-xl p-5 mb-8">
-        <h3 className="font-heading font-semibold text-text-primary mb-4">Price History</h3>
-        <PriceHistoryChart priceHistory={listing.price_history || []} />
-      </div>
+      {listing.price_history && listing.price_history.length > 0 && (
+        <div className="bg-bg-secondary border border-border-subtle rounded-xl p-5 mb-8">
+          <h3 className="font-heading font-semibold text-text-primary mb-4">Price History</h3>
+          <PriceHistoryChart priceHistory={listing.price_history} />
+        </div>
+      )}
 
       {/* Recent Sales */}
-      {listing.completed_orders?.length > 0 && (
+      {listing.completed_orders && listing.completed_orders.length > 0 && (
         <div className="bg-bg-secondary border border-border-subtle rounded-xl p-5">
           <h3 className="font-heading font-semibold text-text-primary mb-4">Recent Sales</h3>
           <div className="overflow-x-auto">

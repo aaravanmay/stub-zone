@@ -8,7 +8,6 @@ const STORAGE_KEY = 'stubzone-team';
 const DEFAULT_POSITIONS = [
   'C', '1B', '2B', '3B', 'SS', 'LF', 'CF', 'RF',
   'SP1', 'SP2', 'SP3', 'SP4', 'SP5',
-  'BENCH1', 'BENCH2', 'BENCH3', 'BENCH4', 'BENCH5',
   'BP1', 'BP2', 'BP3', 'BP4', 'BP5', 'BP6', 'BP7',
 ];
 
